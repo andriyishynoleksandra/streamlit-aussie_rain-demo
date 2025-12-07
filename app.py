@@ -103,24 +103,33 @@ st.markdown("""
 # -------------------- PREPROCESSING + PREDICT ------------------------
 if clicked:
 
-    # 1. Fill missing numeric/cat values
+    # 1 — Fill missing numeric values
     input_data[num_cols] = input_data[num_cols].fillna(pre["num_medians"])
+
+    # 2 — Fill missing categorical values
     input_data[cat_cols] = input_data[cat_cols].fillna(pre["cat_modes"])
 
-    # 2. One-hot encode manually
-    input_encoded = pd.get_dummies(input_data)
+    # 3 — Apply OneHotEncoder trained earlier
+    cat_ohe = pre["encoder"].transform(input_data[cat_cols])
+    cat_ohe_df = pd.DataFrame(
+        cat_ohe,
+        columns=pre["encoder"].get_feature_names_out(cat_cols)
+    )
 
-    # 3. Align columns to training model
-    input_encoded = input_encoded.reindex(columns=dummy_columns, fill_value=0)
+    # 4 — Combine numeric + encoded categorical
+    final_df = pd.concat([input_data[num_cols].reset_index(drop=True), cat_ohe_df], axis=1)
 
-    # 4. Predict
-    prediction = model.predict(input_encoded)[0]
-    probability = model.predict_proba(input_encoded)[0][1]
+    # 5 — Align columns exactly as model expects
+    final_df = final_df.reindex(columns=pre["dummy_columns"], fill_value=0)
 
-    # ------------------ DISPLAY RESULT -------------------
+    # 6 — Predict
+    prediction = model.predict(final_df)[0]
+    probability = model.predict_proba(final_df)[0][1]
+
+    # Output
     st.subheader("📊 Результат прогнозування")
-
     if prediction == 1:
         st.success(f"🌧️ **Ймовірність дощу завтра: {probability:.2%}**")
     else:
         st.info(f"☀️ **Ймовірність дощу завтра низька: {probability:.2%}**")
+
